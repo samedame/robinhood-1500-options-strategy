@@ -1,0 +1,59 @@
+name: IBS Dip Calls daily signal
+
+# Runs every 15 minutes from 13:00-21:00 UTC on weekdays (covers 8am-5pm ET across
+# both EST and EDT, so it never needs manual updates for daylight saving). The first
+# step checks the real ET clock and skips everything else unless it's 3:40-3:58pm ET.
+on:
+  schedule:
+    - cron: '*/15 13-21 * * 1-5'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check ET time window
+        id: check
+        run: |
+          now=$(TZ=America/New_York date +%H%M)
+          echo "ET time: $now"
+          if [ "$now" -ge 1540 ] && [ "$now" -le 1558 ]; then
+            echo "in_window=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "in_window=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.in_window == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        if: steps.check.outputs.in_window == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        if: steps.check.outputs.in_window == 'true'
+        run: pip install yfinance pandas numpy requests
+
+      - name: Run signal check
+        if: steps.check.outputs.in_window == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          python deliver/ibs_dip_calls_signal.py \
+            --equity "${{ vars.ACCOUNT_EQUITY || '1500' }}" \
+            --settled "${{ vars.SETTLED_CASH || '1500' }}"
+
+      - name: Persist position/signal log
+        if: steps.check.outputs.in_window == 'true'
+        run: |
+          git config user.name "ibs-dip-calls-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add deliver/positions.csv deliver/signals_log.csv
+          git diff --cached --quiet || git commit -m "Update signal log $(date -u +%F)"
+          git push
