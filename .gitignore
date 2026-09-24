@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.DS_Store
+data/
+positions.csv
+signals_log.csv
+.env
