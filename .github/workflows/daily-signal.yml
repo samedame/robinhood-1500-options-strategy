@@ -1,12 +1,33 @@
 name: IBS Dip Calls daily signal
 
-# Runs every 15 minutes from 13:00-21:00 UTC on weekdays (covers 8am-5pm ET across
-# both EST and EDT, so it never needs manual updates for daylight saving). The first
-# step checks the real ET clock and skips everything else unless it's 3:40-3:58pm ET.
+# Primary trigger is meant to be the open-scheduler Cloudflare Worker, calling workflow_dispatch
+# at exactly 15:45 ET (matches ibs-callout-bot / daytrading_bot's pattern) -- not yet wired up
+# there as of 2026-09-25. Until it is, this repo's ONLY trigger is the backup cron below, and
+# GitHub's native `schedule:` event has proven unreliable on this account (the control bot,
+# Daily-Stock-Options-Alert, runs its native daily cron ~2-2.5 hours late as routine behavior --
+# see claude/bot-schedule-incident-2026-09-25.md). Two things limit the damage in the meantime:
+#   1. run_guard.py refuses to act outside the 15:45-15:58 ET window at all, so a late run
+#      can never place a stale trade -- worst case is silence, never a bad action.
+#   2. The backup fires at 15:50 ET in BOTH possible UTC offsets (19:50 UTC covers EDT, 20:50
+#      UTC covers EST) so no seasonal edits are ever needed; run_guard.py silently ignores
+#      whichever one lands outside today's real ET window.
 on:
   schedule:
-    - cron: '*/15 13-21 * * 1-5'
-  workflow_dispatch: {}
+    - cron: '50 19,20 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      scheduled_for_et:
+        description: "Intended fire time (ET, ISO-8601). Set by open-scheduler."
+        required: false
+        default: ""
+      trigger:
+        description: "Who started this run (cf-scheduler | test | manual)"
+        required: false
+        default: "manual"
+
+concurrency:
+  group: ibs-dip-calls
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -14,46 +35,33 @@ permissions:
 jobs:
   signal:
     runs-on: ubuntu-latest
+    env:
+      SCHEDULED_FOR_ET: ${{ inputs.scheduled_for_et }}
+      RUN_TRIGGER: ${{ inputs.trigger || github.event_name }}
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
     steps:
-      - name: Check ET time window
-        id: check
-        run: |
-          now=$(TZ=America/New_York date +%H%M)
-          echo "ET time: $now"
-          if [ "$now" -ge 1540 ] && [ "$now" -le 1558 ]; then
-            echo "in_window=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "in_window=false" >> "$GITHUB_OUTPUT"
-          fi
+      - uses: actions/checkout@v4
 
-      - name: Checkout
-        if: steps.check.outputs.in_window == 'true'
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        if: steps.check.outputs.in_window == 'true'
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Install dependencies
-        if: steps.check.outputs.in_window == 'true'
-        run: pip install yfinance pandas numpy requests
+      - run: pip install yfinance pandas numpy requests
 
-      - name: Run signal check
-        if: steps.check.outputs.in_window == 'true'
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      - name: Run signal check (guarded)
         run: |
-          python deliver/ibs_dip_calls_signal.py \
-            --equity "${{ vars.ACCOUNT_EQUITY || '1500' }}" \
-            --settled "${{ vars.SETTLED_CASH || '1500' }}"
+          python run_guard.py --job ibs-dip-calls --target 15:45 --usable-until 15:58 \
+            --on-too-late notice -- \
+            python deliver/ibs_dip_calls_signal.py \
+              --equity "${{ vars.ACCOUNT_EQUITY || '1500' }}" \
+              --settled "${{ vars.SETTLED_CASH || '1500' }}"
 
-      - name: Persist position/signal log
-        if: steps.check.outputs.in_window == 'true'
+      - name: Persist position/signal log + guard state
         run: |
           git config user.name "ibs-dip-calls-bot"
           git config user.email "actions@users.noreply.github.com"
           git add deliver/positions.csv deliver/signals_log.csv
+          git add .run_guard.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "Update signal log $(date -u +%F)"
+          git pull --rebase --autostash
           git push
