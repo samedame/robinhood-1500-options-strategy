@@ -2,6 +2,6 @@ __pycache__/
 *.pyc
 .DS_Store
 data/
-positions.csv
-signals_log.csv
 .env
+# NOTE: deliver/positions.csv and deliver/signals_log.csv are tracked on purpose --
+# the daily GitHub Actions workflow commits them back so state persists across runs.
