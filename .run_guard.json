@@ -1,0 +1,8 @@
+{
+ "ibs-dip-calls:2026-09-28": {
+  "done_at": "2026-09-28T15:46:27-04:00",
+  "late_min": 1.4,
+  "status": "on_time",
+  "trigger": "cf-scheduler"
+ }
+}
