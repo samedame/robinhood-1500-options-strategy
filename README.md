@@ -12,6 +12,39 @@ expiry. Holdout 2022-2025 on real SPY chains: +19% per trade (80 trades). At $1,
 $1,611 (p10 $1,174, p90 $3,128) with a 35% p95 drawdown. Evidence tier B: the deflated Sharpe gate fails and the
 affordable IWM leg is proxy-priced. The same signal through 3x ETF shares beats the options version at this size.
 
+## The 3:45 pm Discord message: what each line asks you to do
+
+`deliver/ibs_dip_calls_signal.py` runs at 3:45 pm ET (GitHub Actions, started by the open-scheduler Worker) and posts one
+message. It never places an order. You keep one file up to date by hand: `deliver/positions.csv`
+(`etf,expiry,strike,contracts,entry_date,entry_price`, one line per call you hold; edit it on GitHub: open the file,
+pencil icon, Commit changes).
+
+| The message says | You do |
+|---|---|
+| `No action today (...)` | Nothing. It also confirms the check ran. |
+| `ENTRY: BUY TO OPEN ...` | Place the limit order in Robinhood as written (live mid, walk $0.01, never above the stated cap, cancel at 3:58 pm). **If it fills**, add the `positions.csv` line printed right under it (replace `FILL_PRICE`). Not filled: nothing to record. |
+| `<ETF> signalled ... but skipped: no call passed the rules` | Nothing. The lines below say which rule blocked each delta rung (usually "costs $X at the ask" - the contract is dearer than 12% of equity). |
+| `EXIT (bounce)` / `EXIT (time)` | Sell to close as written. **Then delete that line from `positions.csv`**, or tomorrow repeats the exit and the single slot stays taken. |
+| `HOLD ...` | Nothing. |
+| `<ETF>: NO READING (...)` or `CHECK BY HAND` | Yahoo or Cboe failed. Check that ETF yourself in the Robinhood app (IBS below 0.10 = signal; sell a held call if its ETF is above yesterday's high or it is the last session before expiry). The run also shows red in GitHub. |
+| `WARNING: ... bar is N min old` | The reading may be stale: confirm IBS in the app before acting. |
+| `STALE LINE` / `BAD LINE in positions.csv` | Fix or delete that line. |
+| `... missed its window` (from the guard) | No reading was taken today. Act by hand if the market is still open; otherwise the day is missed. |
+| `IBS Dip Calls 3:45 pm check: this run FAILED` | The script itself crashed or Discord rejected the message: open the linked run. |
+
+### Audit 2026-10-14
+
+Rulebook values are unchanged (a test replays 1,000 random option chains through the pre-audit selection code and
+asserts identical choices). What changed: the Discord post is checked and retried (it used to ignore errors, and messages
+over 2,000 characters vanish whole); a Yahoo or Cboe outage on a signal day is reported in the message instead of crashing
+before anything was sent; Yahoo bars that are not from today are refused and lagging ones flagged; skipped signals say
+which rule blocked each rung; ENTRY/EXIT messages say how to maintain `positions.csv`; expired, malformed or
+same-day position lines are handled; the workflow saves the log even after a failure, retries its push, and announces a
+failed run in Discord. Run the tests with `pip install pytest pyyaml yfinance pandas numpy requests && python -m pytest tests -q`.
+
+**Scheduler caveat:** no Worker dispatch has reached this repo on a Friday. Cloudflare cron weekdays count from Sunday = 1,
+so `1-5` means Sunday-Thursday. Use `MON-FRI` (or `2-6`) in the open-scheduler Worker's triggers.
+
 ## Files
 
 | Path | What it does |
