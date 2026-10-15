@@ -1,0 +1,17 @@
+name: Tests
+
+# Runs the offline test suite on pull requests so a change to the 3:45 pm helper can't quietly break its messages.
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install yfinance pandas numpy requests pytest pyyaml
+      - run: python -m pytest tests -q

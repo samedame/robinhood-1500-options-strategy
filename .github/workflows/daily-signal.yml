@@ -1,16 +1,15 @@
 name: IBS Dip Calls daily signal
 
-# Primary trigger is meant to be the open-scheduler Cloudflare Worker, calling workflow_dispatch
-# at exactly 15:45 ET (matches ibs-callout-bot / daytrading_bot's pattern) -- not yet wired up
-# there as of 2026-09-25. Until it is, this repo's ONLY trigger is the backup cron below, and
-# GitHub's native `schedule:` event has proven unreliable on this account (the control bot,
-# Daily-Stock-Options-Alert, runs its native daily cron ~2-2.5 hours late as routine behavior --
-# see claude/bot-schedule-incident-2026-09-25.md). Two things limit the damage in the meantime:
+# Primary trigger: the open-scheduler Cloudflare Worker calls workflow_dispatch at 15:45 ET. The native `schedule:`
+# below is only a backup, and GitHub starts it hours late on this account (see claude/bot-schedule-incident-2026-09-25.md).
+# Two things limit the damage of a late run:
 #   1. run_guard.py refuses to act outside the 15:45-15:58 ET window at all, so a late run
-#      can never place a stale trade -- worst case is silence, never a bad action.
+#      can never place a stale trade -- worst case is a "missed window" notice, never a bad action.
 #   2. The backup fires at 15:50 ET in BOTH possible UTC offsets (19:50 UTC covers EDT, 20:50
 #      UTC covers EST) so no seasonal edits are ever needed; run_guard.py silently ignores
 #      whichever one lands outside today's real ET window.
+# Audit 2026-10-14: no Worker dispatch has ever reached this repo on a Friday (Oct 2, Oct 9). Cloudflare numbers
+# cron weekdays 1-7 starting at SUNDAY, so a trigger written `1-5` runs Sun-Thu. Use `MON-FRI` (or `2-6`) there.
 on:
   schedule:
     - cron: '50 19,20 * * 1-5'
@@ -48,20 +47,44 @@ jobs:
 
       - run: pip install yfinance pandas numpy requests
 
+      # Exit code 1 = the check could not be completed (Yahoo / Cboe down, or Discord refused the message).
+      # The script says what it can in Discord itself; the last step below covers the rest.
       - name: Run signal check (guarded)
+        env:
+          TOO_LATE_HINT: >-
+            No 3:45 pm reading was taken today. If the market is still open, check SPY / QQQ / IWM yourself
+            (IBS = (last - low) / (high - low); below 0.10 is a signal) and any call you hold (sell it if its ETF trades
+            above yesterday's high, or if today is the last session before expiry); otherwise the day is simply missed.
+            If this keeps happening on Fridays, the Cloudflare cron's day range is off by one (it counts Sunday as 1).
         run: |
           python run_guard.py --job ibs-dip-calls --target 15:45 --usable-until 15:58 \
-            --on-too-late notice -- \
+            --on-too-late notice --too-late-hint "$TOO_LATE_HINT" -- \
             python deliver/ibs_dip_calls_signal.py \
               --equity "${{ vars.ACCOUNT_EQUITY || '1500' }}" \
               --settled "${{ vars.SETTLED_CASH || '1500' }}"
 
+      # always(): the run appends to signals_log.csv before it posts, so a later failure must not lose those rows.
       - name: Persist position/signal log + guard state
+        if: always()
         run: |
           git config user.name "ibs-dip-calls-bot"
           git config user.email "actions@users.noreply.github.com"
           git add deliver/positions.csv deliver/signals_log.csv
           git add .run_guard.json 2>/dev/null || true
-          git diff --cached --quiet || git commit -m "Update signal log $(date -u +%F)"
-          git pull --rebase --autostash
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "Update signal log $(date -u +%F)"
+            ok=0
+            for i in 1 2 3 4 5; do
+              if git pull --rebase --autostash && git push; then ok=1; break; fi
+              echo "push attempt $i failed; retrying"; sleep $((i * 3))
+            done
+            [ "$ok" = 1 ] || { echo "could not push the signal log after 5 attempts"; exit 1; }
+          fi
+
+      - name: Tell Discord if this run failed
+        if: failure()
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python notify_failure.py "IBS Dip Calls 3:45 pm check" \
+            "If it is still before 3:58 pm ET, re-run it: GitHub > Actions > IBS Dip Calls daily signal > Run workflow. Otherwise check SPY / QQQ / IWM yourself (IBS below 0.10 is a signal) and any call you hold (sell above yesterday's high, or on the last session before expiry)."
