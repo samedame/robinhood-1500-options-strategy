@@ -38,6 +38,8 @@ jobs:
       SCHEDULED_FOR_ET: ${{ inputs.scheduled_for_et }}
       RUN_TRIGGER: ${{ inputs.trigger || github.event_name }}
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      TRADIER_API_KEY: ${{ secrets.TRADIER_API_KEY }}
+      TRADIER_BASE_URL: ${{ secrets.TRADIER_BASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
