@@ -32,6 +32,15 @@ pencil icon, Commit changes).
 | `... missed its window` (from the guard) | No reading was taken today. Act by hand if the market is still open; otherwise the day is missed. |
 | `IBS Dip Calls 3:45 pm check: this run FAILED` | The script itself crashed or Discord rejected the message: open the linked run. |
 
+### Real-time prices (Tradier, optional)
+
+Add the repo secret `TRADIER_API_KEY` (and, only for a *sandbox* key, the secret `TRADIER_BASE_URL` =
+`https://sandbox.tradier.com/v1`). With a **production** key the 1-minute bars and the option chain (real bid/ask, greeks,
+open interest) come from Tradier first and fall back to Yahoo / Cboe if Tradier fails, so a Tradier problem never silences
+the bot. A **sandbox** key is ~15 minutes delayed, so Yahoo / Cboe stay first and the sandbox is only a last resort (the
+stale-bar warning will say so). The ENTRY line names the feed it used. Nothing about the rulebook changed. `deliver/tradier.py`
+is read-only (market data, never accounts or orders). Check a key: `TRADIER_API_KEY=... python deliver/tradier.py SPY`.
+
 ### Audit 2026-10-14
 
 Rulebook values are unchanged (a test replays 1,000 random option chains through the pre-audit selection code and

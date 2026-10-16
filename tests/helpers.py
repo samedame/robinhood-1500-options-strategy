@@ -123,6 +123,9 @@ class SignalTestCase(unittest.TestCase):
         p = mock.patch.object(sig, "cboe_chain", side_effect=self._cboe)
         p.start()
         self.addCleanup(p.stop)
+        p = mock.patch.dict(os.environ, {"TRADIER_API_KEY": "", "TRADIER_TOKEN": "", "TRADIER_BASE_URL": ""})
+        p.start()
+        self.addCleanup(p.stop)               # no key unless a test sets one: the Yahoo / Cboe path is the baseline
         self.now = NOW
         for s in sig.ETFS:                    # every ETF quiet (IBS 0.5) unless a test says otherwise
             self.etf(s, high=100.0, low=90.0, last=95.0, prior_high=101.0)
