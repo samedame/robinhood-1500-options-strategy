@@ -49,6 +49,11 @@ jobs:
 
       - run: pip install yfinance pandas numpy requests
 
+      - name: Log capital source
+        env:
+          CAPITAL_VAR: ${{ vars.ACCOUNT_EQUITY }}
+        run: |
+          if [ -n "$CAPITAL_VAR" ]; then echo "capital=$CAPITAL_VAR source=repo-variable"; else echo "capital=1500 source=default"; fi
       # Exit code 1 = the check could not be completed (Yahoo / Cboe down, or Discord refused the message).
       # The script says what it can in Discord itself; the last step below covers the rest.
       - name: Run signal check (guarded)
