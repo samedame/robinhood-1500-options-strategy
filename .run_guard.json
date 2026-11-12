@@ -1,16 +1,4 @@
 {
- "ibs-dip-calls:2026-10-23": {
-  "done_at": "2026-10-23T15:46:17-04:00",
-  "late_min": 1.2,
-  "status": "on_time",
-  "trigger": "cf-scheduler"
- },
- "ibs-dip-calls:2026-10-26": {
-  "done_at": "2026-10-26T15:46:15-04:00",
-  "late_min": 1.2,
-  "status": "on_time",
-  "trigger": "cf-scheduler"
- },
  "ibs-dip-calls:2026-10-28": {
   "done_at": "2026-10-28T15:46:17-04:00",
   "late_min": 1.2,
@@ -52,5 +40,6 @@
   "late_min": 1.1,
   "status": "on_time",
   "trigger": "cf-scheduler"
- }
+ },
+ "ibs-dip-calls:2026-11-11:notice": "2026-11-11T20:41:49-05:00"
 }
