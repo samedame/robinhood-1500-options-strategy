@@ -5,14 +5,15 @@ name: IBS Dip Calls daily signal
 # Two things limit the damage of a late run:
 #   1. run_guard.py refuses to act outside the 15:45-15:58 ET window at all, so a late run
 #      can never place a stale trade -- worst case is a "missed window" notice, never a bad action.
-#   2. The backup fires at 15:50 ET in BOTH possible UTC offsets (19:50 UTC covers EDT, 20:50
-#      UTC covers EST) so no seasonal edits are ever needed; run_guard.py silently ignores
-#      whichever one lands outside today's real ET window.
+#   2. One trigger per job (2026-11-13): the backup is a single line, 20:50 UTC. That is 15:50 ET in winter and
+#      16:50 ET in summer. Either way run_guard.py exits silently when the Worker's run already finished today, and
+#      posts the one "missed window" notice when it did not, so the backup doubles as the dead-Worker alarm. The
+#      second line (19:50 UTC) only ever produced a wrong-season no-op in winter and was removed.
 # Audit 2026-10-14: no Worker dispatch has ever reached this repo on a Friday (Oct 2, Oct 9). Cloudflare numbers
 # cron weekdays 1-7 starting at SUNDAY, so a trigger written `1-5` runs Sun-Thu. Use `MON-FRI` (or `2-6`) there.
 on:
   schedule:
-    - cron: '50 19,20 * * 1-5'
+    - cron: '50 20 * * 1-5'
   workflow_dispatch:
     inputs:
       scheduled_for_et:

@@ -28,7 +28,7 @@ class DailyWorkflow(unittest.TestCase):
 
     def test_triggers_unchanged(self):
         triggers = self.wf.get("on") or self.wf.get(True)
-        self.assertEqual(triggers["schedule"], [{"cron": "50 19,20 * * 1-5"}])
+        self.assertEqual(triggers["schedule"], [{"cron": "50 20 * * 1-5"}])   # one backup line behind the Worker
         self.assertIn("workflow_dispatch", triggers)
         self.assertEqual(self.wf["concurrency"], {"group": "ibs-dip-calls", "cancel-in-progress": False})
 
