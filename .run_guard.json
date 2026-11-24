@@ -1,14 +1,9 @@
 {
- "ibs-dip-calls:2026-11-06": {
-  "done_at": "2026-11-06T15:46:10-05:00",
-  "late_min": 1.1,
-  "status": "on_time",
-  "trigger": "cf-scheduler"
- },
  "ibs-dip-calls:2026-11-11:notice": "2026-11-11T20:41:49-05:00",
  "ibs-dip-calls:2026-11-16:notice": "2026-11-16T22:12:16-05:00",
  "ibs-dip-calls:2026-11-17:notice": "2026-11-17T21:37:28-05:00",
  "ibs-dip-calls:2026-11-18:notice": "2026-11-18T21:00:28-05:00",
  "ibs-dip-calls:2026-11-19:notice": "2026-11-19T20:55:03-05:00",
- "ibs-dip-calls:2026-11-20:notice": "2026-11-20T20:45:47-05:00"
+ "ibs-dip-calls:2026-11-20:notice": "2026-11-20T20:45:47-05:00",
+ "ibs-dip-calls:2026-11-23:notice": "2026-11-23T23:59:48-05:00"
 }
